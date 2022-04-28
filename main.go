@@ -1,6 +1,9 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	_ "github.com/gorilla/mux"
+)
 
 func main() {
 	fmt.Println("Hello World!")
