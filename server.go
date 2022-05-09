@@ -9,7 +9,7 @@ import (
 )
 
 type Service struct {
-	data map[string]*Config
+	data map[string][]*Config
 }
 
 func (ts *Service) createPostHandler(w http.ResponseWriter, req *http.Request) {
@@ -33,15 +33,15 @@ func (ts *Service) createPostHandler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	id := createId()
-	rt.Id = id
 	ts.data[id] = rt
 	renderJSON(w, rt)
+	w.Write([]byte(id))
 }
 
 func (ts *Service) getAllHandler(w http.ResponseWriter, req *http.Request) {
-	allTasks := []*Config{}
+	var allTasks []*Config
 	for _, v := range ts.data {
-		allTasks = append(allTasks, v)
+		allTasks = append(allTasks, v...)
 	}
 
 	renderJSON(w, allTasks)
@@ -67,4 +67,43 @@ func (ts *Service) delPostHandler(w http.ResponseWriter, req *http.Request) {
 		err := errors.New("key not found")
 		http.Error(w, err.Error(), http.StatusNotFound)
 	}
+}
+
+func (ts *Service) updatePostHandler(w http.ResponseWriter, req *http.Request) {
+
+	contentType := req.Header.Get("Content-Type")
+	mediatype, _, err := mime.ParseMediaType(contentType)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if mediatype != "application/json" {
+		err := errors.New("Expect application/json Content-Type")
+		http.Error(w, err.Error(), http.StatusUnsupportedMediaType)
+		return
+	}
+
+	rt, err := decodeBody(req.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	id := mux.Vars(req)["id"]
+
+	task, err3 := ts.data[id]
+	if !err3 {
+		err3 := errors.New("key not found")
+		http.Error(w, err3.Error(), http.StatusNotFound)
+		return
+	}
+
+	for _, config := range rt {
+		task = append(task, config)
+	}
+
+	ts.data[id] = task
+	renderJSON(w, task)
+
 }
