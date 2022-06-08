@@ -1,2 +1,23 @@
 docker build --tag projekat .
 docker run -p 8000:8000 projekat
+
+************************************
+config
+{
+    "entries" : {
+        "asdasd": "asdasd"
+        },
+    "version": "v1"
+}
+
+group
+{
+    "entries" : [{
+        "asdadsdfsdsd": "asdasasdd",
+        "asdgdfgasd": "asdaasdsd",
+        "asdaasdgsdsd": "asdasdasd",
+        "asdasadsd": "asdasdasd"
+        }],
+    "version": "v1"
+}
+

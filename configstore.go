@@ -2,10 +2,10 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
-	"os"
-
 	"github.com/hashicorp/consul/api"
+	"os"
 )
 
 type ConfigStore struct {
@@ -36,6 +36,10 @@ func (ps *ConfigStore) GetGroup(id string, Version string) (*Group, error) {
 		return nil, err
 	}
 
+	if pair == nil {
+		return nil, errors.New("key not found")
+	}
+
 	post := &Group{}
 	err = json.Unmarshal(pair.Value, post)
 	if err != nil {
@@ -55,6 +59,7 @@ func (ps *ConfigStore) Get(id string, Version string) (*Config, error) {
 
 	post := &Config{}
 	err = json.Unmarshal(pair.Value, post)
+
 	if err != nil {
 		return nil, err
 	}
@@ -68,8 +73,7 @@ func (ps *ConfigStore) Delete(id string, Version string) (map[string]string, err
 	if err != nil {
 		return nil, err
 	}
-
-	return map[string]string{"Deleted": id}, nil
+	return nil, err
 }
 
 func (ps *ConfigStore) DeleteGroup(id string, Version string) (map[string]string, error) {
@@ -78,8 +82,7 @@ func (ps *ConfigStore) DeleteGroup(id string, Version string) (map[string]string
 	if err != nil {
 		return nil, err
 	}
-
-	return map[string]string{"Deleted": id}, nil
+	return nil, err
 }
 
 func (ps *ConfigStore) Post(post *Config) (*Config, error) {
@@ -120,4 +123,30 @@ func (ps *ConfigStore) PostGroup(post *Group) (*Group, error) {
 	}
 
 	return post, nil
+}
+
+func (ps *ConfigStore) FilterLabel(label string) (*[]Config, error) {
+	kv := ps.cli.KV()
+
+	pairs, _, err := kv.List("configs", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var retVal []Config
+
+	for _, config := range pairs {
+		c := &Config{}
+		err = json.Unmarshal(config.Value, c)
+		if err != nil {
+			return nil, err
+		}
+		for _, l := range c.Labels {
+			if l == label {
+				retVal = append(retVal, *c)
+			}
+		}
+	}
+
+	return &retVal, err
 }

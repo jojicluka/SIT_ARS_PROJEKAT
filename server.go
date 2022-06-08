@@ -57,7 +57,9 @@ func (ts *Service) delConfigHandler(w http.ResponseWriter, req *http.Request) {
 	_, err := ts.store.Delete(id, version)
 
 	if err != nil {
-		http.Error(w, "Could not delete group", http.StatusBadRequest)
+		http.Error(w, "Could not delete configuration", http.StatusBadRequest)
+	} else {
+		http.Error(w, "Config is deleted", http.StatusOK)
 	}
 
 }
@@ -108,6 +110,25 @@ func (ts *Service) delGroupHandler(w http.ResponseWriter, req *http.Request) {
 
 	if err != nil {
 		http.Error(w, "Could not delete group", http.StatusBadRequest)
+	} else {
+		http.Error(w, "Group is deleted", http.StatusOK)
 	}
 
+}
+
+func (ts *Service) filterConfigHandler(writer http.ResponseWriter, request *http.Request) {
+	label := mux.Vars(request)["label"]
+
+	task, ok := ts.store.FilterLabel(label)
+	if ok != nil {
+		err := errors.New("key not found")
+		http.Error(writer, err.Error(), http.StatusNotFound)
+		return
+	}
+	if *task == nil {
+		err := errors.New("config with this label not found")
+		http.Error(writer, err.Error(), http.StatusNotFound)
+		return
+	}
+	renderJSON(writer, task)
 }

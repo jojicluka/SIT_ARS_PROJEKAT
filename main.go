@@ -31,11 +31,11 @@ func main() {
 	router.HandleFunc("/config/", server.createConfigHandler).Methods("POST")
 	router.HandleFunc("/config/{id}/{version}/", server.getConfigHandler).Methods("GET")
 	router.HandleFunc("/config/{id}/{version}/", server.delConfigHandler).Methods("DELETE")
+	router.HandleFunc("/config/{label}/", server.filterConfigHandler).Methods("GET")
 
 	router.HandleFunc("/group/", server.createGroupHandler).Methods("POST")
 	router.HandleFunc("/group/{id}/{version}/", server.getGroupHandler).Methods("GET")
 	router.HandleFunc("/group/{id}/{version}/", server.delGroupHandler).Methods("DELETE")
-	//router.HandleFunc("/post/{id}/", server.updatePostHandler).Methods("PUT")
 
 	// start server
 	srv := &http.Server{Addr: "0.0.0.0:8000", Handler: router}
