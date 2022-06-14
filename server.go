@@ -62,7 +62,7 @@ func (ts *Service) delConfigHandler(w http.ResponseWriter, req *http.Request) {
 	conf, err := ts.store.Delete(id, version)
 
 	if err != nil {
-		http.Error(w, "config not found", http.StatusBadRequest)
+		http.Error(w, "config does not exist", http.StatusBadRequest)
 		return
 	}
 	renderJSON(w, conf)
@@ -133,7 +133,7 @@ func (ts *Service) filterConfigHandler(writer http.ResponseWriter, request *http
 		return
 	}
 	if *task == nil {
-		err := errors.New("config with this label not found")
+		err := errors.New("Config with this label does not exist")
 		http.Error(writer, err.Error(), http.StatusNotFound)
 		return
 	}

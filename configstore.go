@@ -77,7 +77,7 @@ func (ps *ConfigStore) Delete(id string, Version string) (map[string]string, err
 	//fmt.Println(konf, " KONF")
 	//fmt.Println(err)
 	if err != nil || data == nil {
-		return nil, errors.New("config ne postoji!")
+		return nil, errors.New("configuration does not exist")
 	} else {
 		_, fail := kv.Delete(constructKeyConfig(id, Version), nil)
 		if fail != nil {
@@ -91,7 +91,7 @@ func (ps *ConfigStore) DeleteGroup(id string, Version string) (map[string]string
 	kv := ps.cli.KV()
 	data, _, err := kv.List(constructKeyGroup(id, Version), nil)
 	if err != nil || data == nil {
-		return nil, errors.New("group not found")
+		return nil, errors.New("group does not exist")
 	} else {
 		_, fail := kv.DeleteTree(constructKeyGroup(id, Version), nil)
 		if fail != nil {
@@ -128,12 +128,12 @@ func (ps *ConfigStore) PostGroup(post *Group) (*Group, error) {
 
 	for _, v := range post.Entries {
 		label := ""
-		listaStringova := []string{}
+		stringList := []string{}
 		for k, val := range v {
-			listaStringova = append(listaStringova, k+":"+val)
+			stringList = append(stringList, k+":"+val)
 		}
-		sort.Strings(listaStringova)
-		for _, v := range listaStringova {
+		sort.Strings(stringList)
+		for _, v := range stringList {
 			label += v + ";"
 		}
 		label = label[:len(label)-1]
