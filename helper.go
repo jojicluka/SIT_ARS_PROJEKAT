@@ -12,6 +12,7 @@ import (
 const (
 	configs = "configs/%s/%s"
 	groups  = "groups/%s/%s"
+	groupsL = "groups/%s/%s/%s"
 )
 
 func generateKeyConfig(Version string) (string, string) {
@@ -78,4 +79,8 @@ func renderJSON(w http.ResponseWriter, v interface{}) {
 
 func createId() string {
 	return uuid.New().String()
+}
+
+func constructKeyGroupLabels(id string, Version string, label string) string {
+	return fmt.Sprintf(groupsL, id, Version, label)
 }

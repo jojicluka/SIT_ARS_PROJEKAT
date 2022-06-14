@@ -4,6 +4,8 @@ import (
 	"errors"
 	"mime"
 	"net/http"
+	"sort"
+	"strings"
 
 	"github.com/gorilla/mux"
 )
@@ -40,8 +42,11 @@ func (ts *Service) createConfigHandler(w http.ResponseWriter, req *http.Request)
 
 func (ts *Service) getConfigHandler(w http.ResponseWriter, req *http.Request) {
 	id := mux.Vars(req)["id"]
+	//fmt.Println(id)
 	version := mux.Vars(req)["version"]
+	//fmt.Println(version)
 	task, ok := ts.store.Get(id, version)
+	//fmt.Println("task: ", task, " | ok: ", ok)
 	if ok != nil {
 		err := errors.New("key not found")
 		http.Error(w, err.Error(), http.StatusNotFound)
@@ -54,13 +59,13 @@ func (ts *Service) delConfigHandler(w http.ResponseWriter, req *http.Request) {
 	id := mux.Vars(req)["id"]
 	version := mux.Vars(req)["version"]
 
-	_, err := ts.store.Delete(id, version)
+	conf, err := ts.store.Delete(id, version)
 
 	if err != nil {
-		http.Error(w, "Could not delete configuration", http.StatusBadRequest)
-	} else {
-		http.Error(w, "Config is deleted", http.StatusOK)
+		http.Error(w, "config not found", http.StatusBadRequest)
+		return
 	}
+	renderJSON(w, conf)
 
 }
 
@@ -84,10 +89,12 @@ func (ts *Service) createGroupHandler(w http.ResponseWriter, req *http.Request) 
 		return
 	}
 
-	id := createId()
-	ts.store.PostGroup(rt)
-	renderJSON(w, rt)
-	w.Write([]byte(id))
+	group, err := ts.store.PostGroup(rt)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	renderJSON(w, group)
 }
 
 func (ts *Service) getGroupHandler(w http.ResponseWriter, req *http.Request) {
@@ -131,4 +138,24 @@ func (ts *Service) filterConfigHandler(writer http.ResponseWriter, request *http
 		return
 	}
 	renderJSON(writer, task)
+}
+
+func (ts *Service) getGroupLabelHandler(w http.ResponseWriter, req *http.Request) {
+
+	id := mux.Vars(req)["id"]
+	version := mux.Vars(req)["version"]
+	label := mux.Vars(req)["label"]
+	list := strings.Split(label, ";")
+	sort.Strings(list)
+	sortedLabel := ""
+	for _, v := range list {
+		sortedLabel += v + ";"
+	}
+	sortedLabel = sortedLabel[:len(sortedLabel)-1]
+	returnConfigs, error := ts.store.GetGroupByLabel(id, version, sortedLabel)
+
+	if error != nil {
+		renderJSON(w, "Not found")
+	}
+	renderJSON(w, returnConfigs)
 }
