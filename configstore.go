@@ -57,8 +57,8 @@ func (ps *ConfigStore) Get(id string, Version string) (*Config, error) {
 	kv := ps.cli.KV()
 
 	pair, _, err := kv.Get(constructKeyConfig(id, Version), nil)
-	if err != nil {
-		return nil, err
+	if err != nil || pair == nil {
+		return nil, errors.New("config not found")
 	}
 
 	post := &Config{}
