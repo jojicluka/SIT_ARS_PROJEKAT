@@ -48,7 +48,17 @@ func (ps *ConfigStore) GetGroup(id string, Version string) (*Group, error) {
 		}
 		entries = append(entries, *group)
 	}
-	post := &Group{entries, Version, id}
+
+	labels := []map[string]string{}
+	for _, pair := range data {
+		group := &map[string]string{}
+		err = json.Unmarshal(pair.Value, group)
+		if err != nil {
+			return nil, err
+		}
+		labels = append(labels, *group)
+	}
+	post := &Group{entries, labels, Version, id}
 
 	return post, nil
 }
@@ -137,8 +147,35 @@ func (ps *ConfigStore) PostGroup(post *Group) (*Group, error) {
 			label += v + ";"
 		}
 		label = label[:len(label)-1]
-		fmt.Println(label)
+		fmt.Println(label, " ?")
 		sid := constructKeyGroupLabels(groupID, post.Version, label) + uuid.New().String()
+		post.Id = groupID
+
+		data, err := json.Marshal(post.Labels)
+		if err != nil {
+			return nil, err
+		}
+
+		p := &api.KVPair{Key: sid, Value: data}
+		_, err = kv.Put(p, nil)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	for _, v := range post.Labels {
+		entry := ""
+		stringList := []string{}
+		for k, val := range v {
+			stringList = append(stringList, k+":"+val)
+		}
+		sort.Strings(stringList)
+		for _, v := range stringList {
+			entry += v + ";"
+		}
+		entry = entry[:len(entry)-1]
+		fmt.Println(entry)
+		sid := constructKeyGroupLabels(groupID, post.Version, entry) + uuid.New().String()
 		post.Id = groupID
 
 		data, err := json.Marshal(v)

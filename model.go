@@ -9,6 +9,7 @@ type Config struct {
 
 type Group struct {
 	Entries []map[string]string `json:"entries"`
+	Labels  []map[string]string `json:"labels"`
 	Version string              `json:"version"`
 	Id      string              `json:"Id"`
 }

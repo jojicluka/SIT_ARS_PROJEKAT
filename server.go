@@ -159,3 +159,20 @@ func (ts *Service) getGroupLabelHandler(w http.ResponseWriter, req *http.Request
 	}
 	renderJSON(w, returnConfigs)
 }
+
+func (ts *Service) filterGroupHandler(writer http.ResponseWriter, request *http.Request) {
+	label := mux.Vars(request)["label"]
+
+	task, ok := ts.store.FilterLabel(label)
+	if ok != nil {
+		err := errors.New("key not found")
+		http.Error(writer, err.Error(), http.StatusNotFound)
+		return
+	}
+	if *task == nil {
+		err := errors.New("Config with this label does not exist")
+		http.Error(writer, err.Error(), http.StatusNotFound)
+		return
+	}
+	renderJSON(writer, task)
+}
