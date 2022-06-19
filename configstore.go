@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/google/uuid"
+	//	"github.com/google/uuid"
 	"os"
-	"sort"
+	"reflect"
+	//	"sort"
+	"strings"
 
 	"github.com/hashicorp/consul/api"
 )
@@ -34,33 +36,17 @@ func New() (*ConfigStore, error) {
 func (ps *ConfigStore) GetGroup(id string, Version string) (*Group, error) {
 	kv := ps.cli.KV()
 
-	data, _, err := kv.List(constructKeyGroup(id, Version), nil)
-	if err != nil || data == nil {
-		return nil, errors.New("key not found")
+	sid := constructKeyGroup(id, Version)
+	pair, _, err := kv.Get(sid, nil)
+	if pair == nil {
+		return nil, errors.New("Could not find a group.")
 	}
-
-	entries := []map[string]string{}
-	for _, pair := range data {
-		group := &map[string]string{}
-		err = json.Unmarshal(pair.Value, group)
-		if err != nil {
-			return nil, err
-		}
-		entries = append(entries, *group)
+	configgroup := &Group{}
+	err = json.Unmarshal(pair.Value, configgroup)
+	if err != nil {
+		return nil, err
 	}
-
-	labels := []map[string]string{}
-	for _, pair := range data {
-		group := &map[string]string{}
-		err = json.Unmarshal(pair.Value, group)
-		if err != nil {
-			return nil, err
-		}
-		labels = append(labels, *group)
-	}
-	post := &Group{entries, labels, Version, id}
-
-	return post, nil
+	return configgroup, nil
 }
 
 func (ps *ConfigStore) Get(id string, Version string) (*Config, error) {
@@ -134,107 +120,109 @@ func (ps *ConfigStore) Post(post *Config) (*Config, error) {
 func (ps *ConfigStore) PostGroup(post *Group) (*Group, error) {
 	kv := ps.cli.KV()
 
-	groupID := uuid.New().String()
+	sid, rid := generateKeyGroup(post.Version)
+	post.Id = rid
 
-	for _, v := range post.Entries {
-		label := ""
-		stringList := []string{}
-		for k, val := range v {
-			stringList = append(stringList, k+":"+val)
-		}
-		sort.Strings(stringList)
-		for _, v := range stringList {
-			label += v + ";"
-		}
-		label = label[:len(label)-1]
-		fmt.Println(label, " ?")
-		sid := constructKeyGroupLabels(groupID, post.Version, label) + uuid.New().String()
-		post.Id = groupID
-
-		data, err := json.Marshal(post.Labels)
-		if err != nil {
-			return nil, err
-		}
-
-		p := &api.KVPair{Key: sid, Value: data}
-		_, err = kv.Put(p, nil)
-		if err != nil {
-			return nil, err
-		}
+	data, err := json.Marshal(post)
+	if err != nil {
+		return nil, err
 	}
 
-	for _, v := range post.Labels {
-		entry := ""
-		stringList := []string{}
-		for k, val := range v {
-			stringList = append(stringList, k+":"+val)
-		}
-		sort.Strings(stringList)
-		for _, v := range stringList {
-			entry += v + ";"
-		}
-		entry = entry[:len(entry)-1]
-		fmt.Println(entry)
-		sid := constructKeyGroupLabels(groupID, post.Version, entry) + uuid.New().String()
-		post.Id = groupID
+	pairs, _, err := kv.Get(sid, nil)
+	if pairs != nil {
+		return nil, errors.New("group already exists. ")
+	}
 
-		data, err := json.Marshal(v)
-		if err != nil {
-			return nil, err
-		}
-
-		p := &api.KVPair{Key: sid, Value: data}
-		_, err = kv.Put(p, nil)
-		if err != nil {
-			return nil, err
-		}
+	p := &api.KVPair{Key: sid, Value: data}
+	_, err = kv.Put(p, nil)
+	if err != nil {
+		return nil, err
 	}
 
 	return post, nil
 }
 
-func (ps *ConfigStore) FilterLabel(label string) (*[]Config, error) {
-	kv := ps.cli.KV()
+//func (ps *ConfigStore) FilterLabel(label string) (*[]Config, error) {
+//	kv := ps.cli.KV()
+//
+//	pairs, _, err := kv.List("configs", nil)
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	var retVal []Config
+//
+//	for _, config := range pairs {
+//		c := &Config{}
+//		err = json.Unmarshal(config.Value, c)
+//		if err != nil {
+//			return nil, err
+//		}
+//		for _, l := range c.Labels {
+//			if l == label {
+//				retVal = append(retVal, *c)
+//			}
+//		}
+//	}
+//
+//	return &retVal, err
+//}
 
-	pairs, _, err := kv.List("configs", nil)
+func (ps *ConfigStore) GetGroupByLabel(id string, version string, label string) ([]*GroupConfig, error) {
+	kv := ps.cli.KV()
+	configList := []*GroupConfig{}
+	sid := constructKeyGroup(id, version)
+
+	data, _, err := kv.Get(sid, nil)
+	if data == nil {
+		return nil, err
+	}
+
+	labelList := strings.Split(label, ";")
+	configStoreLabels := make(map[string]string)
+	for _, label := range labelList {
+		part := strings.Split(label, ":")
+		if part != nil {
+			configStoreLabels[part[0]] = part[1]
+		}
+	}
+
+	group := &Group{}
+	err = json.Unmarshal(data.Value, group)
 	if err != nil {
 		return nil, err
 	}
 
-	var retVal []Config
-
-	for _, config := range pairs {
-		c := &Config{}
-		err = json.Unmarshal(config.Value, c)
-		if err != nil {
-			return nil, err
-		}
-		for _, l := range c.Labels {
-			if l == label {
-				retVal = append(retVal, *c)
+	for _, config := range group.Configs {
+		if len(config.Entries) == len(configStoreLabels) {
+			if reflect.DeepEqual(config.Entries, configStoreLabels) {
+				configList = append(configList, config)
 			}
 		}
 	}
+	//configs := []map[string]string{}
+	//for _, pair := range data {
+	//	config := &map[string]string{}
+	//	err = json.Unmarshal(pair.Value, config)
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//	configs = append(configs, *config)
+	//}
 
-	return &retVal, err
+	return configList, nil
 }
 
-func (ps *ConfigStore) GetGroupByLabel(id string, version string, label string) ([]map[string]string, error) {
+func (ps *ConfigStore) UpdateConfigGroup(group *Group) (*Group, error) {
 	kv := ps.cli.KV()
-	data, _, err := kv.List(constructKeyGroupLabels(id, version, label), nil)
+	data, err := json.Marshal(group)
+
+	sid := constructKeyGroup(group.Id, group.Version)
+	p := &api.KVPair{Key: sid, Value: data}
+	_, err = kv.Put(p, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	configs := []map[string]string{}
-	for _, pair := range data {
-		config := &map[string]string{}
-		err = json.Unmarshal(pair.Value, config)
-		if err != nil {
-			return nil, err
-		}
-		configs = append(configs, *config)
-	}
-
-	return configs, nil
+	return group, nil
 }

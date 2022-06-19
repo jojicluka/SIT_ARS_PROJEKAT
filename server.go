@@ -2,12 +2,9 @@ package main
 
 import (
 	"errors"
+	"github.com/gorilla/mux"
 	"mime"
 	"net/http"
-	"sort"
-	"strings"
-
-	"github.com/gorilla/mux"
 )
 
 type Service struct {
@@ -123,36 +120,36 @@ func (ts *Service) delGroupHandler(w http.ResponseWriter, req *http.Request) {
 
 }
 
-func (ts *Service) filterConfigHandler(writer http.ResponseWriter, request *http.Request) {
-	label := mux.Vars(request)["label"]
-
-	task, ok := ts.store.FilterLabel(label)
-	if ok != nil {
-		err := errors.New("key not found")
-		http.Error(writer, err.Error(), http.StatusNotFound)
-		return
-	}
-	if *task == nil {
-		err := errors.New("Config with this label does not exist")
-		http.Error(writer, err.Error(), http.StatusNotFound)
-		return
-	}
-	renderJSON(writer, task)
-}
+//func (ts *Service) filterConfigHandler(writer http.ResponseWriter, request *http.Request) {
+//	label := mux.Vars(request)["label"]
+//
+//	task, ok := ts.store.FilterLabel(label)
+//	if ok != nil {
+//		err := errors.New("key not found")
+//		http.Error(writer, err.Error(), http.StatusNotFound)
+//		return
+//	}
+//	if *task == nil {
+//		err := errors.New("Config with this label does not exist")
+//		http.Error(writer, err.Error(), http.StatusNotFound)
+//		return
+//	}
+//	renderJSON(writer, task)
+//}
 
 func (ts *Service) getGroupLabelHandler(w http.ResponseWriter, req *http.Request) {
 
 	id := mux.Vars(req)["id"]
 	version := mux.Vars(req)["version"]
 	label := mux.Vars(req)["label"]
-	list := strings.Split(label, ";")
-	sort.Strings(list)
-	sortedLabel := ""
-	for _, v := range list {
-		sortedLabel += v + ";"
-	}
-	sortedLabel = sortedLabel[:len(sortedLabel)-1]
-	returnConfigs, error := ts.store.GetGroupByLabel(id, version, sortedLabel)
+	//list := strings.Split(label, ";")
+	//sort.Strings(list)
+	//sortedLabel := ""
+	//for _, v := range list {
+	//	sortedLabel += v + ";"
+	//}
+	//sortedLabel = sortedLabel[:len(sortedLabel)-1]
+	returnConfigs, error := ts.store.GetGroupByLabel(id, version, label)
 
 	if error != nil {
 		renderJSON(w, "Not found")
@@ -160,19 +157,54 @@ func (ts *Service) getGroupLabelHandler(w http.ResponseWriter, req *http.Request
 	renderJSON(w, returnConfigs)
 }
 
-func (ts *Service) filterGroupHandler(writer http.ResponseWriter, request *http.Request) {
-	label := mux.Vars(request)["label"]
+//func (ts *Service) filterGroupHandler(writer http.ResponseWriter, request *http.Request) {
+//	label := mux.Vars(request)["label"]
+//
+//	task, ok := ts.store.FilterLabel(label)
+//	if ok != nil {
+//		err := errors.New("key not found")
+//		http.Error(writer, err.Error(), http.StatusNotFound)
+//		return
+//	}
+//	if *task == nil {
+//		err := errors.New("Config with this label does not exist")
+//		http.Error(writer, err.Error(), http.StatusNotFound)
+//		return
+//	}
+//	renderJSON(writer, task)
+//}
 
-	task, ok := ts.store.FilterLabel(label)
-	if ok != nil {
-		err := errors.New("key not found")
-		http.Error(writer, err.Error(), http.StatusNotFound)
+func (ts *Service) updateGroupHandler(w http.ResponseWriter, req *http.Request) {
+	contentType := req.Header.Get("Content-Type")
+	mediatype, _, err := mime.ParseMediaType(contentType)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if *task == nil {
-		err := errors.New("Config with this label does not exist")
-		http.Error(writer, err.Error(), http.StatusNotFound)
+
+	if mediatype != "application/json" {
+		err := errors.New("Expect application/json Content-Type")
+		http.Error(w, err.Error(), http.StatusUnsupportedMediaType)
 		return
 	}
-	renderJSON(writer, task)
+
+	rt, err := decodeGroupBody(req.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	v := mux.Vars(req)
+	id := v["id"]
+	version := v["version"]
+	rt.Id = id
+	rt.Version = version
+
+	configgroup, err := ts.store.UpdateConfigGroup(rt)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	renderJSON(w, configgroup)
 }
